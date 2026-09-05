@@ -1,0 +1,5 @@
+# Cadical300 was added in recent PySAT 1.9 development releases.
+python-sat>=1.9.dev4
+pycryptosat
+scipy
+networkx
