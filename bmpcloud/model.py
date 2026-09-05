@@ -52,14 +52,6 @@ class ModelContext:
 
 
 def build_static_model(n, adj, solver, config_name):
-    """
-    Xây toàn bộ phần KHÔNG phụ thuộc bandwidth.
-
-    Hàm này là chìa khóa để:
-      - repeated SAT: build lại mỗi lần
-      - incremental SAT: build đúng 1 lần
-      - assumption SAT: build đúng 1 lần
-    """
     cfg = CONFIGS[config_name]
     ctx = ModelContext(n)
     L = ctx.L
@@ -78,7 +70,6 @@ def build_static_model(n, adj, solver, config_name):
             )
 
     elif cfg.representation == "transition":
-        # Giữ cấu trúc transition của ver5.
         for row in range(1, n + 1):
             solver.add_clause([L(row, 1)])
             num_clause += 1
@@ -88,8 +79,6 @@ def build_static_model(n, adj, solver, config_name):
 
             for row in range(1, n + 1):
                 t = ctx.vpool.id()
-
-                # t <-> L(row,col-1) & not L(row,col)
                 solver.add_clause([-t, -L(row, col)])
                 solver.add_clause([-t, L(row, col - 1)])
                 solver.add_clause([L(row, col), -L(row, col - 1), t])
@@ -118,12 +107,6 @@ def build_static_model(n, adj, solver, config_name):
 
 
 def bandwidth_clauses(n, adj, bandwidth, ctx):
-    """
-    Sinh clause phụ thuộc bandwidth, KHÔNG add vào solver.
-
-    Dùng >= 0 theo CMS ver5 hiện tại.
-    Nếu paper chốt > 0 thì đổi tại duy nhất hàm này.
-    """
     L = ctx.L
 
     for u in range(1, n + 1):

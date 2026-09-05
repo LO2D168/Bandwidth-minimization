@@ -23,7 +23,7 @@ def solve_with_hard_timeout(
     progress_path=None,
     metadata=None,
 ):
-    """Apply a hard wall-clock timeout to one solver.solve() call."""
+
     if timeout_s <= 0:
         return solver.solve(assumptions=assumptions or [])
 
@@ -50,9 +50,6 @@ def solve_with_hard_timeout(
                 "solve_timeout_s": timeout_s,
                 "solve_elapsed_s": round(time.monotonic() - started, 6),
             })
-
-        # Each experiment is already an independent OS process.
-        # Exiting here kills only this task, leaving the batch scheduler alive.
         os._exit(TIMEOUT_EXIT_CODE)
 
     threading.Thread(

@@ -133,24 +133,3 @@ VM3:
 ```bash
 SHARD_INDEX=2 JOBS=12 RUN_ID=paper01 ./scripts/run_3vm.sh
 ```
-
-## Timeout
-
-Không dùng Python thread để timeout solver.
-
-Mỗi task là một OS process. Batch parent kill toàn process group khi quá timeout.
-Cách này giữ được incremental state bên trong task nhưng vẫn có hard timeout ở
-cấp toàn instance.
-
-## Lưu ý về Assumption SAT
-
-Assumption SAT và Incremental SAT đều reuse một solver, nhưng không giống nhau:
-
-Incremental:
-  formula chỉ mạnh dần do add clause.
-
-Assumption:
-  formula chứa các clause được guard bởi selector;
-  mỗi solve call bật một selector qua assumptions.
-
-Do đó cần benchmark riêng cả ba phương pháp.

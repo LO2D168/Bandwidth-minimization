@@ -16,7 +16,6 @@ class SolverBackend:
 
 
 class Cadical300Backend(SolverBackend):
-    """PySAT wrapper for CaDiCaL 3.0.0."""
 
     def __init__(self):
         self.solver = Cadical300()
@@ -35,12 +34,6 @@ class Cadical300Backend(SolverBackend):
 
 
 class CryptoMiniSatBackend(SolverBackend):
-    """
-    PySAT CryptoMinisat wrapper.
-
-    Dùng cùng API solve(assumptions=...) với CaDiCaL để ba phương pháp
-    repeated / incremental / assumption không phải viết hai code path.
-    """
 
     def __init__(self):
         self.solver = CryptoMinisat()

@@ -5,7 +5,6 @@ import time
 
 
 def now():
-    """Return high-resolution wall and process CPU clocks in nanoseconds."""
     return time.perf_counter_ns(), time.process_time_ns()
 
 

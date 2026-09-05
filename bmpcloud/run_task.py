@@ -89,11 +89,9 @@ def run_task(
 
         "solve_timeout_s": solve_timeout_s,
 
-        # Primary timing metrics.
         "task_wall_time_s": round(task_wall, 9),
         "task_cpu_time_s": round(task_cpu, 9),
 
-        # Execution metadata for reproducibility.
         "cpu_affinity": cpu_affinity(),
         "hostname": socket.gethostname(),
         "git_commit": current_commit(Path(repo_root)),
