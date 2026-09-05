@@ -2,7 +2,6 @@ import argparse
 import csv
 import json
 import os
-import random
 import subprocess
 import sys
 import time
@@ -61,7 +60,6 @@ def write_tables(run_dir):
 
         solve_records = row.pop("solve_records", [])
 
-        # Encode list metadata compactly in summary.csv.
         if isinstance(row.get("cpu_affinity"), list):
             row["cpu_affinity"] = ",".join(map(str, row["cpu_affinity"]))
 
@@ -137,13 +135,6 @@ def main():
     )
 
     p.add_argument(
-        "--schedule-seed",
-        type=int,
-        default=2026,
-        help="Fixed seed used to shuffle task order reproducibly.",
-    )
-
-    p.add_argument(
         "--settle-seconds",
         type=float,
         default=1.0,
@@ -176,7 +167,6 @@ def main():
 
     tasks = []
 
-    # Recursive scan supports testcase/smoke, testcase/benchmark, ...
     for instance in sorted(testcase_dir.rglob("*.mtx")):
         for config in configs:
             for solver in solvers:
@@ -204,18 +194,13 @@ def main():
                             )
                         )
 
-    # Fixed shuffle reduces time-of-day / ordering bias while remaining reproducible.
-    random.Random(args.schedule_seed).shuffle(tasks)
-
     print(
         "TIMING MODE | jobs=1 | "
         f"pending={len(tasks)} | "
         f"cpu_core={args.cpu_core} | "
         f"timeout_per_solve={args.solve_timeout}s | "
-        f"schedule_seed={args.schedule_seed}"
     )
 
-    # Limit common numerical libraries to one thread as an extra safeguard.
     child_env = os.environ.copy()
     child_env["OMP_NUM_THREADS"] = "1"
     child_env["OPENBLAS_NUM_THREADS"] = "1"
@@ -297,7 +282,6 @@ def main():
                 "solve_timeout_s": args.solve_timeout,
                 "timing_mode": "single_job",
                 "cpu_core": args.cpu_core,
-                "schedule_seed": args.schedule_seed,
             })
 
             print(
@@ -312,7 +296,6 @@ def main():
                 "returncode": rc,
                 "timing_mode": "single_job",
                 "cpu_core": args.cpu_core,
-                "schedule_seed": args.schedule_seed,
             })
 
             print(f"[{index}/{total}] ERROR rc={rc} {task_id}")
@@ -323,7 +306,6 @@ def main():
                 data = json.loads(output.read_text(encoding="utf-8"))
                 data["timing_mode"] = "single_job"
                 data["cpu_core"] = args.cpu_core
-                data["schedule_seed"] = args.schedule_seed
                 atomic_json(output, data)
             except Exception:
                 pass
@@ -333,7 +315,6 @@ def main():
         progress.unlink(missing_ok=True)
         write_tables(run_dir)
 
-        # Fixed idle interval happens AFTER result/timing is finalized.
         if args.settle_seconds > 0 and index < total:
             time.sleep(args.settle_seconds)
 

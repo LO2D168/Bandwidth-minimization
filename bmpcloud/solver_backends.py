@@ -54,10 +54,10 @@ class CryptoMiniSatBackend(SolverBackend):
 def make_solver(name):
     name = name.lower()
 
-    if name in {"cadical", "cadical300", "cd300"}:
+    if name in {"cadical", "cadical300"}:
         return Cadical300Backend()
 
-    if name in {"cms", "cryptominisat", "cryptominisat5"}:
+    if name in {"cms", "cryptominisat"}:
         return CryptoMiniSatBackend()
 
     raise ValueError(f"Unsupported solver: {name}")

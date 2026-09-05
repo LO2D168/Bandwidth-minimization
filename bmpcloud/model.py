@@ -66,14 +66,10 @@ def build_static_model(n, adj, solver, config_name):
                 mode="equal_k",
                 vpool=ctx.vpool,
                 encoding=cfg.encoding,
-                k=n - col + 1,
+                k= n - col + 1,
             )
 
     elif cfg.representation == "transition":
-        for row in range(1, n + 1):
-            solver.add_clause([L(row, 1)])
-            num_clause += 1
-
         for col in range(2, n + 1):
             transitions = []
 
@@ -98,6 +94,10 @@ def build_static_model(n, adj, solver, config_name):
         raise ValueError(f"Unknown representation: {cfg.representation}")
 
     # Monotonic L.
+    for row in range(1, n + 1):
+        solver.add_clause([L(row, 1)])
+        num_clause += 1
+
     for row in range(1, n + 1):
         for col in range(1, n):
             solver.add_clause([-L(row, col + 1), L(row, col)])

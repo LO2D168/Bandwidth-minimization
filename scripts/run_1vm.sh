@@ -16,5 +16,4 @@ python -m bmpcloud.batch \
   --methods repeated incremental assumption \
   --solve-timeout "${SOLVE_TIMEOUT}" \
   --cpu-core "${CPU_CORE}" \
-  --schedule-seed "${SCHEDULE_SEED}" \
   --settle-seconds "${SETTLE_SECONDS}"
