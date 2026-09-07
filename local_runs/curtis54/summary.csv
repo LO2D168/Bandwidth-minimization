@@ -1,0 +1,2 @@
+bandwidth_check,check_index,completed_build_wall_time_s,completed_solve_wall_time_s,config,method,solve_timeout_s,solver,status
+9,6,0.261649861,265.50445297,amo_seqcounter,repeated,3000.0,cadical300,SOLVING

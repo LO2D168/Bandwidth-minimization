@@ -76,11 +76,17 @@ def solve_incremental_sat(
                 "solve_cpu_time_s": round(solve_cpu, 9),
             })
 
-            if sat:
+            if sat is True:
                 state["best_sat"] = val
                 state["last_model"] = solver.get_model()
-            else:
+
+            elif sat is False:
                 break
+
+            else:
+                raise RuntimeError(
+                    f"Unexpected solver result at bandwidth {val}: {sat}"
+                )
 
     finally:
         solver.close()

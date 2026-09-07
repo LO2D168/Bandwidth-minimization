@@ -90,6 +90,19 @@ def build_static_model(n, adj, solver, config_name):
                 encoding=cfg.encoding,
             )
 
+        last_label = [
+            L(row, n)
+            for row in range(1, n + 1)
+        ]
+
+        num_clause += add_cardinality(
+            solver=solver,
+            lits=last_label,
+            mode=cfg.mode,
+            vpool=ctx.vpool,
+            encoding=cfg.encoding,
+        )
+
     else:
         raise ValueError(f"Unknown representation: {cfg.representation}")
 

@@ -1,0 +1,11 @@
+{
+  "method": "repeated",
+  "solver": "cadical300",
+  "config": "amo_seqcounter",
+  "bandwidth_check": 9,
+  "check_index": 6,
+  "completed_solve_wall_time_s": 265.50445297,
+  "completed_build_wall_time_s": 0.261649861,
+  "status": "SOLVING",
+  "solve_timeout_s": 3000.0
+}
