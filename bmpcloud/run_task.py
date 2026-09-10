@@ -3,6 +3,7 @@ import json
 import os
 import socket
 import subprocess
+import time
 from pathlib import Path
 
 from .bounds import find_lowerbound, find_upperbound
@@ -10,9 +11,11 @@ from .check_model import check
 from .graph_io import read_mtx_to_adj
 from .model import CONFIGS
 from .run_solver import RUNNERS
+from .solve_timeout import start_task_watchdog, write_task_progress
 from .timing import now, elapsed_seconds, cpu_affinity
 
 METHODS = tuple(RUNNERS)
+RESULT_SCHEMA_VERSION = 2
 
 
 def atomic_write_json(path, payload):
@@ -49,96 +52,149 @@ def run_task(
     method,
     output,
     repo_root,
-    solve_timeout_s=3000,
+    task_timeout_s=3600,
 ):
+    if task_timeout_s <= 0:
+        raise ValueError("task_timeout_s must be > 0")
+
+    task_id = (
+        f"{Path(instance).stem}"
+        f"__{config_name}"
+        f"__{solver_name}"
+        f"__{method}"
+    )
+
+    task_started_monotonic = time.monotonic()
     task_wall0, task_cpu0 = now()
 
     output = Path(output)
     progress_path = output.with_suffix(".progress.json")
 
-    n, m, adj = read_mtx_to_adj(instance)
-    ub = find_upperbound(n, adj)
-    lb = find_lowerbound(n, adj)
-
-    # Run task that will find result
-    status, bandwidth, model, stats = RUNNERS[method](
-        n=n,
-        adj=adj,
-        lb=lb,
-        ub=ub,
-        solver_name=solver_name,
-        config_name=config_name,
-        solve_timeout_s=solve_timeout_s,
+    timeout_done = start_task_watchdog(
+        task_timeout_s=task_timeout_s,
+        task_started_monotonic=task_started_monotonic,
         progress_path=progress_path,
+        metadata={
+            "task_id": task_id,
+            "instance": str(instance),
+            "solver": solver_name,
+            "method": method,
+            "config": config_name,
+        },
     )
 
-    # Stop counting time that we won't add check time to the total time.
-    task_wall, task_cpu = elapsed_seconds(
-        task_wall0,
-        task_cpu0,
-    )
+    try:
+        write_task_progress(
+            progress_path,
+            task_started_monotonic,
+            task_timeout_s,
+            status="PREPARING",
+            task_id=task_id,
+            instance=str(instance),
+            solver=solver_name,
+            method=method,
+            config=config_name,
+        )
 
-    # Check result from model if find optimal solution.
-    model_valid = None
-    labels = None
+        n, m, adj = read_mtx_to_adj(instance)
+        ub = find_upperbound(n, adj)
+        lb = find_lowerbound(n, adj)
 
-    if status == "OPTIMAL":
-        if model is None:
-            model_valid = False
-            status = "INVALID_MODEL"
+        write_task_progress(
+            progress_path,
+            task_started_monotonic,
+            task_timeout_s,
+            status="SEARCHING",
+            task_id=task_id,
+            instance=str(instance),
+            solver=solver_name,
+            method=method,
+            config=config_name,
+            n=n,
+            m=m,
+            lb=lb,
+            ub=ub,
+        )
 
-        else:
-            labels, model_valid = check(
-                n=n,
-                adj=adj,
-                val=bandwidth,
-                model=model,
-            )
+        status, bandwidth, model, stats = RUNNERS[method](
+            n=n,
+            adj=adj,
+            lb=lb,
+            ub=ub,
+            solver_name=solver_name,
+            config_name=config_name,
+            task_timeout_s=task_timeout_s,
+            task_started_monotonic=task_started_monotonic,
+            progress_path=progress_path,
+        )
 
-            if not model_valid:
+        search_wall, search_cpu = elapsed_seconds(
+            task_wall0,
+            task_cpu0,
+        )
+
+        model_valid = None
+        labels = None
+
+        if status == "OPTIMAL":
+            if model is None:
+                model_valid = False
                 status = "INVALID_MODEL"
 
-   # Load result to metadata
+            else:
+                labels, model_valid = check(
+                    n=n,
+                    adj=adj,
+                    val=bandwidth,
+                    model=model,
+                )
 
-    payload = {
-        "task_id": (
-            f"{Path(instance).stem}"
-            f"__{config_name}"
-            f"__{solver_name}"
-            f"__{method}"
-        ),
+                if not model_valid:
+                    status = "INVALID_MODEL"
 
-        "instance": str(instance),
-        "solver": solver_name,
-        "method": method,
-        "config": config_name,
-        "n": n,
-        "m": m,
+        task_wall, task_cpu = elapsed_seconds(
+            task_wall0,
+            task_cpu0,
+        )
 
-        "lb": lb,
-        "ub": ub,
-        "bandwidth": bandwidth,
-        "status": status,
-        "model_valid": model_valid,
-        "labels": labels,
-        "solve_timeout_s": solve_timeout_s,
-        "task_wall_time_s": round(task_wall, 9),
-        "task_cpu_time_s": round(task_cpu, 9),
-        "cpu_affinity": cpu_affinity(),
-        "hostname": socket.gethostname(),
-        "git_commit": current_commit(Path(repo_root)),
+        payload = {
+            "result_schema_version": RESULT_SCHEMA_VERSION,
+            "timeout_scope": "task",
+            "task_id": task_id,
+            "instance": str(instance),
+            "solver": solver_name,
+            "method": method,
+            "config": config_name,
+            "n": n,
+            "m": m,
+            "lb": lb,
+            "ub": ub,
+            "bandwidth": bandwidth,
+            "status": status,
+            "model_valid": model_valid,
+            "labels": labels,
+            "task_timeout_s": task_timeout_s,
+            "search_wall_time_s": round(search_wall, 9),
+            "search_cpu_time_s": round(search_cpu, 9),
+            "task_wall_time_s": round(task_wall, 9),
+            "task_cpu_time_s": round(task_cpu, 9),
+            "cpu_affinity": cpu_affinity(),
+            "hostname": socket.gethostname(),
+            "git_commit": current_commit(Path(repo_root)),
+            **stats,
+        }
 
-        **stats,
-    }
+        atomic_write_json(
+            output,
+            payload,
+        )
 
-    atomic_write_json(
-        output,
-        payload,
-    )
+        progress_path.unlink(missing_ok=True)
 
-    progress_path.unlink(missing_ok=True)
+        return payload
 
-    return payload
+    finally:
+        timeout_done.set()
 
 
 def main():
@@ -181,9 +237,15 @@ def main():
     )
 
     parser.add_argument(
+        "--task-timeout",
         "--solve-timeout",
+        dest="task_timeout",
         type=float,
-        default=3000,
+        default=3600,
+        help=(
+            "Hard wall-clock timeout for the entire task. "
+            "--solve-timeout is kept as a deprecated alias."
+        ),
     )
 
     args = parser.parse_args()
@@ -195,7 +257,7 @@ def main():
         method=args.method,
         output=args.output,
         repo_root=Path(args.repo_root).resolve(),
-        solve_timeout_s=args.solve_timeout,
+        task_timeout_s=args.task_timeout,
     )
 
     print(
